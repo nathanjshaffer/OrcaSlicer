@@ -4267,6 +4267,8 @@ struct Plater::priv
     // BBS: backup & restore
     std::vector<size_t> load_files(const std::vector<fs::path>& input_files, LoadStrategy strategy, bool ask_multi = false);
     std::vector<size_t> load_model_objects(const ModelObjectPtrs& model_objects, bool allow_negative_z = false, bool split_object = false);
+    
+    void parse_volume_types(const Model &model);
 
     fs::path get_export_file_path(GUI::FileType file_type);
     wxString get_export_file(GUI::FileType file_type);
@@ -6106,7 +6108,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             // do some post process after loading config
                             {
                                 //BBS: rewrite wipe tower pos stored in 3mf file , the code above should be seriously reconsidered
-                                 ConfigOptionFloats* wipe_tower_x = proj_cfg.opt<ConfigOptionFloats>("wipe_tower_x");
+                                ConfigOptionFloats* wipe_tower_x = proj_cfg.opt<ConfigOptionFloats>("wipe_tower_x");
                                 ConfigOptionFloats* wipe_tower_y = proj_cfg.opt<ConfigOptionFloats>("wipe_tower_y");
                                 if (file_wipe_tower_x)
                                     *wipe_tower_x = *file_wipe_tower_x;
@@ -6173,7 +6175,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     }
                 };
                 if (boost::iends_with(path.string(), ".stp") ||
-                    boost::iends_with(path.string(), ".step")) {
+                    boost::iends_with(path.string(), ".step")) 
+                    {
                         double linear = string_to_double_decimal_point(wxGetApp().app_config->get("linear_defletion"));
                         if (linear <= 0) linear = 0.003;
                         double angle = string_to_double_decimal_point(wxGetApp().app_config->get("angle_defletion"));
@@ -6222,6 +6225,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             is_user_cancel = true;
                             return -1;
                         }, linear, angle, split_compound);
+                        parse_volume_types(model);
                 }else {
                     model = Slic3r::Model:: read_from_file(
                     path.string(), nullptr, nullptr, strategy, &plate_data, &project_presets, &is_xxx, &file_version, nullptr,
@@ -6290,6 +6294,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
             q->skip_thumbnail_invalid = false;
             return empty_result;
         }
+        
+        
 
         if (load_model) {
             // The model should now be initialized
@@ -16267,6 +16273,27 @@ bool Plater::set_printer_technology(PrinterTechnology printer_technology)
     p->notification_manager->set_slicing_progress_hidden();
 
     return ret;
+}
+
+void Plater::priv::parse_volume_types(const Model &model)
+{
+  for (ModelObject *o : model.objects){
+    for (ModelVolume *volume : o->volumes) {
+      if(boost::iends_with(volume->name, "#SupportBlocker"))
+      {
+        volume->set_type(ModelVolumeType::SUPPORT_BLOCKER);
+      }
+      else if(boost::iends_with(volume->name, "#SupportEnforcer"))
+      {
+        volume->set_type(ModelVolumeType::SUPPORT_ENFORCER);
+      }
+      else if(boost::iends_with(volume->name, "#Modifier"))
+      {
+        volume->set_type(ModelVolumeType::PARAMETER_MODIFIER);
+      }
+      std::cout << volume->name << std::endl;
+    }
+  }
 }
 
 void Plater::clear_before_change_mesh(int obj_idx)

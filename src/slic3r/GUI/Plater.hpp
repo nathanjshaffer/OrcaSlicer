@@ -528,7 +528,7 @@ public:
     void open_platesettings_dialog(wxCommandEvent& evt);
     void open_filament_map_setting_dialog(wxCommandEvent &evt);
     void on_change_color_mode(SimpleEvent& evt);
-	void eject_drive();
+	  void eject_drive();
 
     void take_snapshot(const std::string &snapshot_name);
     //void take_snapshot(const wxString &snapshot_name);
